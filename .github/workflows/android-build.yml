@@ -1,0 +1,40 @@
+name: Build APK
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить исходники
+        uses: actions/checkout@v4
+
+      - name: Установить JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Распаковать архив и найти проект
+        run: |
+          ls *.zip >/dev/null 2>&1 && unzip -o -q *.zip
+          PROJ=$(dirname "$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)")
+          if [ ! -f "$PROJ/settings.gradle.kts" ]; then
+            echo "Файл settings.gradle.kts не найден: загрузите файлы проекта, папку Ugolki или архив Ugolki-Android.zip"
+            exit 1
+          fi
+          echo "Каталог проекта: $PROJ"
+          echo "PROJECT_DIR=$PROJ" >> "$GITHUB_ENV"
+
+      - name: Собрать debug-APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Опубликовать APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ugolki-debug
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
